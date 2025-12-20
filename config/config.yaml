@@ -1,0 +1,9 @@
+http:
+  host: 0.0.0.0
+  port: 8080
+kafka:
+  brokers:
+    - localhost:9092
+  topic: webhook-topic
+  consumerGroup: "webhook"
+  maxBytes: 10e6
