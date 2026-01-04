@@ -21,7 +21,9 @@ type KafkaConfig struct {
 }
 
 type LarkConfig struct {
-	AppID     string `mapstructure:"appID"`
-	AppSecret string `mapstructure:"appSecret"`
-	ChatID    string `mapstructure:"chatID"`
+	AppID             string `mapstructure:"appID"`
+	AppSecret         string `mapstructure:"appSecret"`
+	EncryptKey        string `mapstructure:"encryptKey"`
+	VerificationToken string `mapstructure:"verificationToken"`
+	ChatID            string `mapstructure:"chatID"`
 }

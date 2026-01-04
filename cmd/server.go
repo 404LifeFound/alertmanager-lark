@@ -30,7 +30,8 @@ func NewServerCmd() *cobra.Command {
 					alert.NewLark,
 				),
 				fx.Invoke(
-					server.RegisterWebhookHandler,
+					alert.CardEventCallback,
+					server.RegisterHandlers,
 					worker.Run,
 				),
 				fx.WithLogger(fxlogger.WithZerolog(log.Logger)),
@@ -72,4 +73,10 @@ func installFlags(flags *pflag.FlagSet) {
 
 	flags.String("lark-chat-id", "", "lark chatID")
 	viper.BindPFlag("lark.chatID", flags.Lookup("lark-chat-id"))
+
+	flags.String("lark-encrypt-key", "", "lark callback encrypt key")
+	viper.BindPFlag("lark.encryptKey", flags.Lookup("lark-encrypt-key"))
+
+	flags.String("lark-verification-token", "", "lark callback veritication token")
+	viper.BindPFlag("lark.verificationToken", flags.Lookup("lark-verification-token"))
 }

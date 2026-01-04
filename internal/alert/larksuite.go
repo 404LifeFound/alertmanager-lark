@@ -1,6 +1,8 @@
 package alert
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"time"
@@ -15,6 +17,8 @@ import (
 func NewLark(lc fx.Lifecycle) *lark.Lark {
 	l := lark.New(
 		lark.WithAppCredential(config.GlobalConfig.Lark.AppID, config.GlobalConfig.Lark.AppSecret),
+		lark.WithEventCallbackVerify(config.GlobalConfig.Lark.EncryptKey, config.GlobalConfig.Lark.VerificationToken),
+		lark.WithNonBlockingCallback(true),
 		lark.WithOpenBaseURL("https://open.larksuite.com"),
 		lark.WithWWWBaseURL("https://www.larksuite.com"),
 	)
@@ -31,6 +35,17 @@ type LarkCard struct {
 	AssignEmails []string
 	Metric       string
 	Description  string
+}
+
+type CardActionValue struct {
+	Title       string `json:"title"`
+	Project     string `json:"project"`
+	Time        string `json:"time"`
+	GrafanaURL  string `json:"grafana_url"`
+	RunBookURL  string `json:"runbook_url"`
+	Metric      string `json:"metric"`
+	Description string `json:"description"`
+	Action      string `json:"action"`
 }
 
 func (l *LarkCard) ParseTime() (string, error) {
@@ -173,11 +188,97 @@ func (l *LarkCard) NewLarkCard() *lark.MessageContentCard {
 			).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
 		),
 		card.Action(
-			card.Button("Resolved", nil).SetPrimary().SetValue("resolve test value"),
+			card.Button("Resolved", nil).SetPrimary().SetValue(CardActionValue{
+				Title:       l.Title,
+				Project:     l.Project,
+				Time:        l.Time,
+				GrafanaURL:  l.GrafanaURL,
+				RunBookURL:  l.RunBookURL,
+				Metric:      l.Metric,
+				Description: l.Description,
+				Action:      "resolve",
+			}),
 		),
 	).SetHeader(
 		card.Header(l.SetTitle()).SetRed(),
 	)
 
 	return c
+}
+
+type LarkCallbackHandler struct {
+	Lark *lark.Lark
+}
+
+func CardEventCallback(l *lark.Lark) {
+	l.EventCallback.HandlerEventCard(func(ctx context.Context, cli *lark.Lark, event *lark.EventCardCallback) (string, error) {
+		if event == nil || event.Action == nil {
+			return "", nil
+		}
+		var val CardActionValue
+		if err := json.Unmarshal(event.Action.Value, &val); err != nil {
+			return "", nil
+		}
+		if val.Action != "resolve" {
+			return "", nil
+		}
+		lc := &LarkCard{
+			Title:       val.Title,
+			Project:     val.Project,
+			Time:        val.Time,
+			GrafanaURL:  val.GrafanaURL,
+			RunBookURL:  val.RunBookURL,
+			Metric:      val.Metric,
+			Description: val.Description,
+		}
+		metric, err := lc.ParseExpr()
+		if err == nil {
+			lc.WithMetric(metric)
+		}
+		t, err := lc.ParseTime()
+		if err == nil {
+			lc.WithTime(t)
+		}
+		c := card.Card(
+			card.ColumnSet(
+				card.Column(
+					card.Markdown(lc.ProjectMD()),
+				).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
+				card.Column(
+					card.Markdown(lc.TimeMD()),
+				).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
+			),
+			card.ColumnSet(
+				card.Column(
+					card.Markdown(lc.GrafanaURLMD()),
+				).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
+				card.Column(
+					card.Markdown(lc.RunbookMD()),
+				).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
+			),
+			card.ColumnSet(
+				card.Column(
+					card.Markdown(lc.AssignEmailMD()),
+				).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
+			),
+			card.ColumnSet(
+				card.Column(
+					card.Markdown("**状态：**\n✅ Resolved"),
+				).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
+			),
+			card.ColumnSet(
+				card.Column(
+					card.Markdown(lc.MetricMD()),
+				).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
+			),
+			card.ColumnSet(
+				card.Column(
+					card.Markdown(lc.DescriptionMD()),
+				).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
+			),
+		).SetHeader(
+			card.Header(fmt.Sprintf("✅ %s", lc.Title)).SetGreen(),
+		)
+		return c.String(), nil
+	})
 }

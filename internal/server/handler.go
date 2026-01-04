@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/chyroc/lark"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/alertmanager/notify/webhook"
 	kafka "github.com/segmentio/kafka-go"
@@ -54,10 +55,14 @@ func (w *WebhookHandler) Webhook(c *gin.Context) {
 	})
 }
 
-func RegisterWebhookHandler(e *gin.Engine, w *kafka.Writer) error {
+func RegisterHandlers(e *gin.Engine, w *kafka.Writer, l *lark.Lark) error {
 	webhook_handler := &WebhookHandler{
 		Writer: w,
 	}
-	e.POST("/webhook", webhook_handler.Webhook)
+	g := e.Group("/lark", nil)
+	g.POST("/webhook", webhook_handler.Webhook)
+	g.POST("/callback", func(c *gin.Context) {
+		l.EventCallback.ListenCallback(c.Request.Context(), c.Request.Body, c.Writer)
+	})
 	return nil
 }
