@@ -27,8 +27,10 @@ func NewKafkaReader(lc fx.Lifecycle) *kafka.Reader {
 
 func NewKafkaWriter(lc fx.Lifecycle) *kafka.Writer {
 	w := &kafka.Writer{
-		Addr:  kafka.TCP(config.GlobalConfig.Kafka.Brokers...),
-		Topic: config.GlobalConfig.Kafka.Topic,
+		Addr:         kafka.TCP(config.GlobalConfig.Kafka.Brokers...),
+		Topic:        config.GlobalConfig.Kafka.Topic,
+		Balancer:     &kafka.LeastBytes{},
+		RequiredAcks: 1,
 	}
 
 	lc.Append(fx.Hook{

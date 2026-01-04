@@ -33,6 +33,12 @@ func NewRootCmd() *cobra.Command {
 			}
 			c, _ := json.Marshal(config.GlobalConfig)
 			log.Info().Msg(string(c))
+			if len(config.GlobalConfig.Kafka.Brokers) == 0 || config.GlobalConfig.Kafka.Topic == "" {
+				return fmt.Errorf("invalid kafka config")
+			}
+			if config.GlobalConfig.Lark.AppID == "" || config.GlobalConfig.Lark.AppSecret == "" || config.GlobalConfig.Lark.ChatID == "" {
+				return fmt.Errorf("invalid lark config")
+			}
 			return nil
 		},
 	}

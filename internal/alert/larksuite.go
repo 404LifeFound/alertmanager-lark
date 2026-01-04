@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/404LifeFound/alertmanager-lark/config"
@@ -49,20 +50,14 @@ type CardActionValue struct {
 }
 
 func (l *LarkCard) ParseTime() (string, error) {
-	str := "2018-08-03 09:52:26.739266876 +0200 +0200"
-	layout := "2006-01-02 15:04:05.999999999 +0200 +0200"
-
-	t, err := time.Parse(layout, str)
+	t, err := time.Parse(time.RFC3339Nano, l.Time)
 	if err != nil {
-		panic(err)
+		t, err = time.Parse(time.RFC3339, l.Time)
+		if err != nil {
+			log.Error().Err(err).Msgf("failed to parse time: %s", l.Time)
+			return "", err
+		}
 	}
-
-	t, err = time.Parse(layout, l.Time)
-	if err != nil {
-		log.Error().Err(err).Msgf("failed to parse time: %s", l.Time)
-		return "", err
-	}
-
 	return t.Format("2006-01-02 15:04:05.000"), nil
 
 }
@@ -121,12 +116,18 @@ func (l *LarkCard) RunbookMD() string {
 
 func (l *LarkCard) AssignEmailMD() string {
 	assign_s := "**👤 Assigned to: **\n"
-	if len(l.AssignEmails) == 0 {
+	filtered := make([]string, 0, len(l.AssignEmails))
+	for _, e := range l.AssignEmails {
+		e = strings.TrimSpace(e)
+		if e != "" {
+			filtered = append(filtered, e)
+		}
+	}
+	if len(filtered) == 0 {
 		assign_s += "<at id=all></at>"
 		return assign_s
 	}
-
-	for _, e := range l.AssignEmails {
+	for _, e := range filtered {
 		assign_s += fmt.Sprintf("<at email=%s></at>", e)
 	}
 	return assign_s
@@ -204,10 +205,6 @@ func (l *LarkCard) NewLarkCard() *lark.MessageContentCard {
 	)
 
 	return c
-}
-
-type LarkCallbackHandler struct {
-	Lark *lark.Lark
 }
 
 func CardEventCallback(l *lark.Lark) {
