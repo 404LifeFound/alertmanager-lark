@@ -86,9 +86,23 @@ func Run(lc fx.Lifecycle, reader *kafka.Reader, lark *lark.Lark) {
 						}
 						card_s := c.NewLarkCard().String()
 						log.Info().Msgf("card string is: %s", card_s)
-						_, _, err = lark.Message.Send().ToChatID(config.GlobalConfig.Lark.ChatID).SendCard(ctx, card_s)
-						if err != nil {
-							log.Error().Err(err).Msgf("faild to send card message %v to chat: %v", string(m.Value), config.GlobalConfig.Lark.ChatID)
+						retries := config.GlobalConfig.Lark.SendRetries
+						if retries <= 0 {
+							retries = 1
+						}
+						backoff := time.Duration(config.GlobalConfig.Lark.SendRetryBackoff) * time.Millisecond
+						var sendErr error
+						for attempt := 1; attempt <= retries; attempt++ {
+							_, _, sendErr = lark.Message.Send().ToChatID(config.GlobalConfig.Lark.ChatID).SendCard(ctx, card_s)
+							if sendErr == nil {
+								break
+							}
+							if attempt < retries {
+								time.Sleep(backoff)
+							}
+						}
+						if sendErr != nil {
+							log.Error().Err(sendErr).Msgf("faild to send card message %v to chat: %v", string(m.Value), config.GlobalConfig.Lark.ChatID)
 						}
 
 					}

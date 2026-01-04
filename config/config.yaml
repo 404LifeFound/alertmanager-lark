@@ -7,3 +7,8 @@ kafka:
   topic: webhook-topic
   consumerGroup: "webhook"
   maxBytes: 10e6
+  writeRetries: 3
+  writeRetryBackoffMs: 500
+lark:
+  sendRetries: 3
+  sendRetryBackoffMs: 500

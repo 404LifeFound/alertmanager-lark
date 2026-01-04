@@ -14,10 +14,12 @@ type HttpConfig struct {
 }
 
 type KafkaConfig struct {
-	Brokers       []string `mapstructure:"brokers"`
-	Topic         string   `mapstructure:"topic"`
-	ConsumerGroup string   `mapstructure:"consumerGroup"`
-	MaxBytes      int      `mapstructure:"maxBytes"`
+	Brokers           []string `mapstructure:"brokers"`
+	Topic             string   `mapstructure:"topic"`
+	ConsumerGroup     string   `mapstructure:"consumerGroup"`
+	MaxBytes          int      `mapstructure:"maxBytes"`
+	WriteRetries      int      `mapstructure:"writeRetries"`
+	WriteRetryBackoff int      `mapstructure:"writeRetryBackoffMs"`
 }
 
 type LarkConfig struct {
@@ -26,4 +28,6 @@ type LarkConfig struct {
 	EncryptKey        string `mapstructure:"encryptKey"`
 	VerificationToken string `mapstructure:"verificationToken"`
 	ChatID            string `mapstructure:"chatID"`
+	SendRetries       int    `mapstructure:"sendRetries"`
+	SendRetryBackoff  int    `mapstructure:"sendRetryBackoffMs"`
 }

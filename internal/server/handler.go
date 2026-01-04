@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/404LifeFound/alertmanager-lark/config"
 	"github.com/chyroc/lark"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/alertmanager/notify/webhook"
@@ -45,19 +46,36 @@ func (w *WebhookHandler) Webhook(c *gin.Context) {
 		}
 	}
 
-	// 写入 Kafka 设置超时，避免阻塞请求
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
-	defer cancel()
-	if err := w.Writer.WriteMessages(ctx,
-		kafka.Message{
-			Key:   key,
-			Value: kafka_msg,
-		},
-	); err != nil {
-		c.Error(err)
+	// 写入 Kafka 使用重试机制
+	retries := config.GlobalConfig.Kafka.WriteRetries
+	if retries <= 0 {
+		retries = 1
+	}
+	backoff := time.Duration(config.GlobalConfig.Kafka.WriteRetryBackoff) * time.Millisecond
+	var lastErr error
+	for attempt := 1; attempt <= retries; attempt++ {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
+		err = w.Writer.WriteMessages(ctx,
+			kafka.Message{
+				Key:   key,
+				Value: kafka_msg,
+			},
+		)
+		cancel()
+		if err == nil {
+			lastErr = nil
+			break
+		}
+		lastErr = err
+		if attempt < retries {
+			time.Sleep(backoff)
+		}
+	}
+	if lastErr != nil {
+		c.Error(lastErr)
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 			"message": "write event to kafka failed",
-			"error":   err.Error(),
+			"error":   lastErr.Error(),
 		})
 		return
 	}

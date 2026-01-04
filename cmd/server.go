@@ -65,6 +65,12 @@ func installFlags(flags *pflag.FlagSet) {
 	flags.Int("kafka-max-bytes", 10e6, "Max size of kafka message produce or consume(bytes)")
 	viper.BindPFlag("kafka.maxBytes", flags.Lookup("kafka-max-bytes"))
 
+	flags.Int("kafka-write-retries", 3, "kafka write retries on failure")
+	viper.BindPFlag("kafka.writeRetries", flags.Lookup("kafka-write-retries"))
+
+	flags.Int("kafka-write-retry-backoff-ms", 500, "kafka write retry backoff in milliseconds")
+	viper.BindPFlag("kafka.writeRetryBackoffMs", flags.Lookup("kafka-write-retry-backoff-ms"))
+
 	flags.String("lark-app-id", "", "lark appID")
 	viper.BindPFlag("lark.appID", flags.Lookup("lark-app-id"))
 
@@ -79,4 +85,10 @@ func installFlags(flags *pflag.FlagSet) {
 
 	flags.String("lark-verification-token", "", "lark callback veritication token")
 	viper.BindPFlag("lark.verificationToken", flags.Lookup("lark-verification-token"))
+
+	flags.Int("lark-send-retries", 3, "lark send retries on failure")
+	viper.BindPFlag("lark.sendRetries", flags.Lookup("lark-send-retries"))
+
+	flags.Int("lark-send-retry-backoff-ms", 500, "lark send retry backoff in milliseconds")
+	viper.BindPFlag("lark.sendRetryBackoffMs", flags.Lookup("lark-send-retry-backoff-ms"))
 }
