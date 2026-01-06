@@ -91,4 +91,22 @@ func installFlags(flags *pflag.FlagSet) {
 
 	flags.Int("lark-send-retry-backoff-ms", 500, "lark send retry backoff in milliseconds")
 	viper.BindPFlag("lark.sendRetryBackoffMs", flags.Lookup("lark-send-retry-backoff-ms"))
+
+	flags.StringSlice("alert-fields-alert-name-keys", []string{"alertname"}, "Keys to search for alert name")
+	viper.BindPFlag("alertFields.alertNameKeys", flags.Lookup("alert-fields-alert-name-keys"))
+
+	flags.StringSlice("alert-fields-project-keys", []string{"Project", "project"}, "Keys to search for project")
+	viper.BindPFlag("alertFields.projectKeys", flags.Lookup("alert-fields-project-keys"))
+
+	flags.StringSlice("alert-fields-notify-emails-keys", []string{"NotifyEmails", "notify_emails"}, "Keys to search for notify emails")
+	viper.BindPFlag("alertFields.notifyEmailsKeys", flags.Lookup("alert-fields-notify-emails-keys"))
+
+	flags.StringSlice("alert-fields-grafana-url-keys", []string{"GrafanaURL", "grafana_url"}, "Keys to search for grafana URL")
+	viper.BindPFlag("alertFields.grafanaUrlKeys", flags.Lookup("alert-fields-grafana-url-keys"))
+
+	flags.StringSlice("alert-fields-runbook-url-keys", []string{"RunBookURL", "runbook_url"}, "Keys to search for runbook URL")
+	viper.BindPFlag("alertFields.runbookUrlKeys", flags.Lookup("alert-fields-runbook-url-keys"))
+
+	flags.StringSlice("alert-fields-description-keys", []string{"description", "summary", "message"}, "Keys to search for description")
+	viper.BindPFlag("alertFields.descriptionKeys", flags.Lookup("alert-fields-description-keys"))
 }

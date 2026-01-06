@@ -3,9 +3,19 @@ package config
 var GlobalConfig Config
 
 type Config struct {
-	Http  HttpConfig  `mapstructure:"http"`
-	Kafka KafkaConfig `mapstructure:"kafka"`
-	Lark  LarkConfig  `mapstructure:"lark"`
+	Http        HttpConfig        `mapstructure:"http"`
+	Kafka       KafkaConfig       `mapstructure:"kafka"`
+	Lark        LarkConfig        `mapstructure:"lark"`
+	AlertFields AlertFieldsConfig `mapstructure:"alertFields"`
+}
+
+type AlertFieldsConfig struct {
+	AlertNameKeys    []string `mapstructure:"alertNameKeys"`
+	ProjectKeys      []string `mapstructure:"projectKeys"`
+	NotifyEmailsKeys []string `mapstructure:"notifyEmailsKeys"`
+	GrafanaURLKeys   []string `mapstructure:"grafanaUrlKeys"`
+	RunBookURLKeys   []string `mapstructure:"runbookUrlKeys"`
+	DescriptionKeys  []string `mapstructure:"descriptionKeys"`
 }
 
 type HttpConfig struct {
