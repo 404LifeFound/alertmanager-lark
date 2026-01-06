@@ -38,7 +38,6 @@ func (w *WebhookHandler) Webhook(c *gin.Context) {
 		return
 	}
 
-	// 使用 Fingerprint 作为消息 key，利于同告警分区与幂等
 	var key []byte
 	if len(webhook_event.Alerts) > 0 {
 		if fp := webhook_event.Alerts[0].Fingerprint; fp != "" {
@@ -46,7 +45,6 @@ func (w *WebhookHandler) Webhook(c *gin.Context) {
 		}
 	}
 
-	// 写入 Kafka 使用重试机制
 	retries := config.GlobalConfig.Kafka.WriteRetries
 	if retries <= 0 {
 		retries = 1

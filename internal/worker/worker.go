@@ -16,15 +16,17 @@ import (
 )
 
 func Run(lc fx.Lifecycle, reader *kafka.Reader, lark *lark.Lark) {
+	workerCtx, cancel := context.WithCancel(context.Background())
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			go func() {
 				backoff := time.Second
 				for {
-					m, err := reader.ReadMessage(ctx)
+					m, err := reader.ReadMessage(workerCtx)
 					if err != nil {
-						if ctx.Err() != nil {
+						if workerCtx.Err() != nil {
 							// lifecycle cancelled
+							log.Info().Msg("worker context cancelled, exiting kafka consumer")
 							break
 						}
 						log.Error().Err(err).Msg("read message failed, will retry")
@@ -93,7 +95,7 @@ func Run(lc fx.Lifecycle, reader *kafka.Reader, lark *lark.Lark) {
 						backoff := time.Duration(config.GlobalConfig.Lark.SendRetryBackoff) * time.Millisecond
 						var sendErr error
 						for attempt := 1; attempt <= retries; attempt++ {
-							_, _, sendErr = lark.Message.Send().ToChatID(config.GlobalConfig.Lark.ChatID).SendCard(ctx, card_s)
+							_, _, sendErr = lark.Message.Send().ToChatID(config.GlobalConfig.Lark.ChatID).SendCard(workerCtx, card_s)
 							if sendErr == nil {
 								break
 							}
@@ -109,6 +111,11 @@ func Run(lc fx.Lifecycle, reader *kafka.Reader, lark *lark.Lark) {
 
 				}
 			}()
+			return nil
+		},
+		OnStop: func(ctx context.Context) error {
+			log.Info().Msg("stopping kafka consumer")
+			cancel()
 			return nil
 		},
 	})
