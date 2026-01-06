@@ -46,35 +46,12 @@ func Run(lc fx.Lifecycle, reader *kafka.Reader, lark *lark.Lark) {
 					}
 
 					for _, a := range webhook_event.Alerts {
-						alertname, ok := a.Labels["alertname"]
-						if !ok {
-							alertname = "N/A"
-						}
-
-						project, ok := a.Labels["Project"]
-						if !ok {
-							project = "N/A"
-						}
-
-						notify_emails, ok := a.Labels["NotifyEmails"]
-						if !ok {
-							notify_emails = ""
-						}
-
-						grafana_url, ok := a.Labels["GrafanaURL"]
-						if !ok {
-							grafana_url = "N/A"
-						}
-
-						runbook_url, ok := a.Labels["RunBookURL"]
-						if !ok {
-							runbook_url = "N/A"
-						}
-
-						description, ok := a.Annotations["description"]
-						if !ok {
-							description = "N/A"
-						}
+						alertname := FindFirstValue(a, "N/A", "alertname")
+						project := FindFirstValue(a, "N/A", "Project", "project")
+						notify_emails := FindFirstValue(a, "", "NotifyEmails", "notify_emails")
+						grafana_url := FindFirstValue(a, "N/A", "GrafanaURL", "grafana_url")
+						runbook_url := FindFirstValue(a, "N/A", "RunBookURL", "runbook_url")
+						description := FindFirstValue(a, "N/A", "description", "summary")
 
 						c := &alert.LarkCard{
 							Title:        alertname,
