@@ -276,6 +276,25 @@ func CardEventCallback(l *lark.Lark) {
 		).SetHeader(
 			card.Header(fmt.Sprintf("✅ %s", lc.Title)).SetGreen(),
 		)
+		log.Info().Msgf("card string is: %s", c.String())
+		retries := config.GlobalConfig.Lark.SendRetries
+		if retries <= 0 {
+			retries = 1
+		}
+		backoff := time.Duration(config.GlobalConfig.Lark.SendRetryBackoff) * time.Millisecond
+		var sendErr error
+		for attempt := 1; attempt <= retries; attempt++ {
+			_, _, sendErr = cli.Message.Send().ToChatID(config.GlobalConfig.Lark.ChatID).SendCard(context.Background(), c.String())
+			if sendErr == nil {
+				break
+			}
+			if attempt < retries {
+				time.Sleep(backoff)
+			}
+		}
+		if sendErr != nil {
+			log.Error().Err(sendErr).Msgf("faild to send card message %v to chat: %v", c.String(), config.GlobalConfig.Lark.ChatID)
+		}
 		return c.String(), nil
 	})
 }
