@@ -3,7 +3,7 @@ module github.com/404LifeFound/alertmanager-lark
 go 1.25.4
 
 require (
-	github.com/404LifeFound/lark-gin/v2 v2.1.1
+	github.com/404LifeFound/lark-gin/v2 v2.1.2
 	github.com/gin-contrib/logger v1.2.6
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-lark/lark v1.16.0
