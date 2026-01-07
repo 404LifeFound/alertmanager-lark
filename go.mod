@@ -3,9 +3,10 @@ module github.com/404LifeFound/alertmanager-lark
 go 1.25.4
 
 require (
-	github.com/chyroc/lark v0.0.113
+	github.com/404LifeFound/lark-gin/v2 v2.1.1
 	github.com/gin-contrib/logger v1.2.6
 	github.com/gin-gonic/gin v1.11.0
+	github.com/go-lark/lark v1.16.0
 	github.com/ipfans/fxlogger v0.2.0
 	github.com/prometheus/alertmanager v0.30.0
 	github.com/rs/zerolog v1.34.0
@@ -45,6 +46,8 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.9 // indirect
 	github.com/gin-contrib/sse v1.1.0 // indirect
+	github.com/go-lark/card-builder v1.0.0-beta.2 // indirect
+	github.com/go-lark/lark/v2 v2.0.0-beta.5 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect

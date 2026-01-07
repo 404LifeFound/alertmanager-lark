@@ -2,29 +2,31 @@ package alert
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/404LifeFound/alertmanager-lark/config"
-	"github.com/chyroc/lark"
-	"github.com/chyroc/lark/card"
+	"github.com/go-lark/lark"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
 )
 
-func NewLark(lc fx.Lifecycle) *lark.Lark {
-	l := lark.New(
-		lark.WithAppCredential(config.GlobalConfig.Lark.AppID, config.GlobalConfig.Lark.AppSecret),
-		lark.WithEventCallbackVerify(config.GlobalConfig.Lark.EncryptKey, config.GlobalConfig.Lark.VerificationToken),
-		lark.WithNonBlockingCallback(true),
-		lark.WithOpenBaseURL("https://open.larksuite.com"),
-		lark.WithWWWBaseURL("https://www.larksuite.com"),
-	)
-
-	return l
+func NewLark(lc fx.Lifecycle) *lark.Bot {
+	bot := lark.NewChatBot(config.GlobalConfig.Lark.AppID, config.GlobalConfig.Lark.AppSecret)
+	bot.SetDomain(lark.DomainLark)
+	lc.Append(fx.Hook{
+		OnStart: func(context.Context) error {
+			bot.StartHeartbeat()
+			return nil
+		},
+		OnStop: func(context.Context) error {
+			bot.StopHeartbeat()
+			return nil
+		},
+	})
+	return bot
 }
 
 type LarkCard struct {
@@ -98,6 +100,10 @@ func (l *LarkCard) SetTitle() string {
 	return fmt.Sprintf("🚨 %s", l.Title)
 }
 
+func (l *LarkCard) SetResolvedTitle() string {
+	return fmt.Sprintf("%s (Resolved)", l.SetTitle())
+}
+
 func (l *LarkCard) ProjectMD() string {
 	return fmt.Sprintf("**📦 Project:**\n%s", l.Project)
 }
@@ -141,160 +147,58 @@ func (l *LarkCard) DescriptionMD() string {
 	return fmt.Sprintf("**👉 Description: **\n%s", l.Description)
 }
 
-func (l *LarkCard) NewLarkCard() *lark.MessageContentCard {
+func (l *LarkCard) NewLarkCard() string {
 	metric, err := l.ParseExpr()
-	if err != nil {
-		log.Error().Err(err).Send()
-	} else {
+	if err == nil && metric != "" {
 		l.WithMetric(metric)
 	}
-
 	t, err := l.ParseTime()
-	if err != nil {
-		log.Error().Err(err).Send()
-	} else {
+	if err == nil && t != "" {
 		l.WithTime(t)
 	}
-
-	c := card.Card(
-		card.ColumnSet(
-			card.Column(
-				card.Markdown(l.ProjectMD()),
-			).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
-			card.Column(
-				card.Markdown(l.TimeMD()),
-			).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
-		),
-		card.ColumnSet(
-			card.Column(
-				card.Markdown(l.GrafanaURLMD()),
-			).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
-			card.Column(
-				card.Markdown(l.RunbookMD()),
-			).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
-		),
-		card.ColumnSet(
-			card.Column(
-				card.Markdown(l.AssignEmailMD()),
-			).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
-		),
-		card.ColumnSet(
-			card.Column(
-				card.Markdown(l.MetricMD()),
-			).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
-		),
-		card.ColumnSet(
-			card.Column(
-				card.Markdown(l.DescriptionMD()),
-			).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
-		),
-		card.Action(
-			card.Button("Resolved", nil).SetPrimary().SetValue(CardActionValue{
-				Title:       l.Title,
-				Project:     l.Project,
-				Time:        l.Time,
-				GrafanaURL:  l.GrafanaURL,
-				RunBookURL:  l.RunBookURL,
-				Metric:      l.Metric,
-				Description: l.Description,
-				Action:      "resolve",
+	b := lark.NewCardBuilder()
+	c := b.Card(
+		b.ColumnSet(
+			b.Column(b.Markdown(l.ProjectMD())).Width("weighted").Weight(1),
+			b.Column(b.Markdown(l.TimeMD())).Width("weighted").Weight(1),
+		).FlexMode("none"),
+		b.ColumnSet(
+			b.Column(b.Markdown(l.GrafanaURLMD())).Width("weighted").Weight(1),
+			b.Column(b.Markdown(l.RunbookMD())).Width("weighted").Weight(1),
+		).FlexMode("none"),
+		b.Markdown(l.AssignEmailMD()),
+		b.Markdown(l.MetricMD()),
+		b.Markdown(l.DescriptionMD()),
+		b.Action(
+			b.Button(b.Text("Resolved")).Primary().Value(map[string]interface{}{
+				"title":       l.Title,
+				"project":     l.Project,
+				"time":        l.Time,
+				"grafana_url": l.GrafanaURL,
+				"runbook_url": l.RunBookURL,
+				"metric":      l.Metric,
+				"description": l.Description,
+				"action":      "resolve",
 			}),
 		),
-	).SetHeader(
-		card.Header(l.SetTitle()).SetRed(),
-	)
-
-	return c
+	).Title(l.SetTitle()).Red().UpdateMulti(true)
+	return c.String()
 }
 
-func CardEventCallback(l *lark.Lark) {
-	l.EventCallback.HandlerEventCard(func(ctx context.Context, cli *lark.Lark, event *lark.EventCardCallback) (string, error) {
-		if event == nil || event.Action == nil {
-			return "", nil
-		}
-		var val CardActionValue
-		if err := json.Unmarshal(event.Action.Value, &val); err != nil {
-			return "", nil
-		}
-		if val.Action != "resolve" {
-			return "", nil
-		}
-		lc := &LarkCard{
-			Title:       val.Title,
-			Project:     val.Project,
-			Time:        val.Time,
-			GrafanaURL:  val.GrafanaURL,
-			RunBookURL:  val.RunBookURL,
-			Metric:      val.Metric,
-			Description: val.Description,
-		}
-		metric, err := lc.ParseExpr()
-		if err == nil {
-			lc.WithMetric(metric)
-		}
-		t, err := lc.ParseTime()
-		if err == nil {
-			lc.WithTime(t)
-		}
-		c := card.Card(
-			card.ColumnSet(
-				card.Column(
-					card.Markdown(lc.ProjectMD()),
-				).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
-				card.Column(
-					card.Markdown(lc.TimeMD()),
-				).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
-			),
-			card.ColumnSet(
-				card.Column(
-					card.Markdown(lc.GrafanaURLMD()),
-				).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
-				card.Column(
-					card.Markdown(lc.RunbookMD()),
-				).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
-			),
-			card.ColumnSet(
-				card.Column(
-					card.Markdown(lc.AssignEmailMD()),
-				).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
-			),
-			card.ColumnSet(
-				card.Column(
-					card.Markdown("**状态：**\n✅ Resolved"),
-				).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
-			),
-			card.ColumnSet(
-				card.Column(
-					card.Markdown(lc.MetricMD()),
-				).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
-			),
-			card.ColumnSet(
-				card.Column(
-					card.Markdown(lc.DescriptionMD()),
-				).SetWidth("weighted").SetWeight(1).SetTopVerticalAlign(),
-			),
-		).SetHeader(
-			card.Header(fmt.Sprintf("✅ %s", lc.Title)).SetGreen(),
-		)
-		log.Info().Msgf("card string is: %s", c.String())
-		retries := config.GlobalConfig.Lark.SendRetries
-		if retries <= 0 {
-			retries = 1
-		}
-		backoff := time.Duration(config.GlobalConfig.Lark.SendRetryBackoff) * time.Millisecond
-		var sendErr error
-		for attempt := 1; attempt <= retries; attempt++ {
-			_, _, sendErr = cli.Message.Send().ToChatID(config.GlobalConfig.Lark.ChatID).SendCard(context.Background(), c.String())
-			if sendErr == nil {
-				break
-			}
-			if attempt < retries {
-				time.Sleep(backoff)
-			}
-		}
-		if sendErr != nil {
-			log.Error().Err(sendErr).Msgf("faild to send card message %v to chat: %v", c.String(), config.GlobalConfig.Lark.ChatID)
-		}
-		return c.String(), nil
-	})
+func (l *LarkCard) NewResolvedCard() string {
+	b := lark.NewCardBuilder()
+	c := b.Card(
+		b.ColumnSet(
+			b.Column(b.Markdown(l.ProjectMD())).Width("weighted").Weight(1),
+			b.Column(b.Markdown(l.TimeMD())).Width("weighted").Weight(1),
+		).FlexMode("none"),
+		b.ColumnSet(
+			b.Column(b.Markdown(l.GrafanaURLMD())).Width("weighted").Weight(1),
+			b.Column(b.Markdown(l.RunbookMD())).Width("weighted").Weight(1),
+		).FlexMode("none"),
+		b.Markdown(l.AssignEmailMD()),
+		b.Markdown(l.MetricMD()),
+		b.Markdown(l.DescriptionMD()),
+	).Title(l.SetResolvedTitle()).Green().UpdateMulti(true)
+	return c.String()
 }

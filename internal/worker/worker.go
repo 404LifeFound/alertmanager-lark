@@ -3,19 +3,20 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/404LifeFound/alertmanager-lark/config"
 	"github.com/404LifeFound/alertmanager-lark/internal/alert"
-	"github.com/chyroc/lark"
+	"github.com/go-lark/lark"
 	"github.com/prometheus/alertmanager/notify/webhook"
 	"github.com/rs/zerolog/log"
 	kafka "github.com/segmentio/kafka-go"
 	"go.uber.org/fx"
 )
 
-func Run(lc fx.Lifecycle, reader *kafka.Reader, lark *lark.Lark) {
+func Run(lc fx.Lifecycle, reader *kafka.Reader, bot *lark.Bot) {
 	workerCtx, cancel := context.WithCancel(context.Background())
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
@@ -46,12 +47,12 @@ func Run(lc fx.Lifecycle, reader *kafka.Reader, lark *lark.Lark) {
 					}
 
 					for _, a := range webhook_event.Alerts {
-						alertname := FindFirstValue(a, "N/A", config.GlobalConfig.AlertFields.AlertNameKeys...)
-						project := FindFirstValue(a, "N/A", config.GlobalConfig.AlertFields.ProjectKeys...)
-						notify_emails := FindFirstValue(a, "", config.GlobalConfig.AlertFields.NotifyEmailsKeys...)
-						grafana_url := FindFirstValue(a, "N/A", config.GlobalConfig.AlertFields.GrafanaURLKeys...)
-						runbook_url := FindFirstValue(a, "N/A", config.GlobalConfig.AlertFields.RunBookURLKeys...)
-						description := FindFirstValue(a, "N/A", config.GlobalConfig.AlertFields.DescriptionKeys...)
+						alertname := FindFirstValue(a, "N/A", "alertname")
+						project := FindFirstValue(a, "N/A", "Project", "project")
+						notify_emails := FindFirstValue(a, "", "NotifyEmails", "notify_emails")
+						grafana_url := FindFirstValue(a, "N/A", "GrafanaURL", "grafana_url")
+						runbook_url := FindFirstValue(a, "N/A", "RunBookURL", "runbook_url")
+						description := FindFirstValue(a, "N/A", "description", "summary")
 
 						c := &alert.LarkCard{
 							Title:        alertname,
@@ -63,7 +64,7 @@ func Run(lc fx.Lifecycle, reader *kafka.Reader, lark *lark.Lark) {
 							Metric:       a.GeneratorURL,
 							Description:  description,
 						}
-						card_s := c.NewLarkCard().String()
+						card_s := c.NewLarkCard()
 						log.Info().Msgf("card string is: %s", card_s)
 						retries := config.GlobalConfig.Lark.SendRetries
 						if retries <= 0 {
@@ -71,10 +72,20 @@ func Run(lc fx.Lifecycle, reader *kafka.Reader, lark *lark.Lark) {
 						}
 						backoff := time.Duration(config.GlobalConfig.Lark.SendRetryBackoff) * time.Millisecond
 						var sendErr error
+						var resp *lark.PostMessageResponse
 						for attempt := 1; attempt <= retries; attempt++ {
-							_, _, sendErr = lark.Message.Send().ToChatID(config.GlobalConfig.Lark.ChatID).SendCard(workerCtx, card_s)
+							resp, sendErr = bot.PostMessage(
+								lark.NewMsgBuffer(lark.MsgInteractive).
+									BindChatID(config.GlobalConfig.Lark.ChatID).
+									Card(card_s).
+									Build(),
+							)
 							if sendErr == nil {
-								break
+								if resp.Code != 0 {
+									sendErr = fmt.Errorf("lark api error: code=%d, msg=%s", resp.Code, resp.Msg)
+								} else {
+									break
+								}
 							}
 							if attempt < retries {
 								time.Sleep(backoff)

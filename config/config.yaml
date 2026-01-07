@@ -12,3 +12,11 @@ kafka:
 lark:
   sendRetries: 3
   sendRetryBackoffMs: 500
+alertFields:
+  alertNameKeys: ["alertname"]
+  projectKeys: ["Project", "project"]
+  notifyEmailsKeys: ["NotifyEmails", "notify_emails"]
+  grafanaUrlKeys: ["GrafanaURL", "grafana_url"]
+  runbookUrlKeys: ["RunBookURL", "runbook_url"]
+  descriptionKeys: ["description", "summary"]
+

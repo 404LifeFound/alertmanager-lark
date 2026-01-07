@@ -30,7 +30,6 @@ func NewServerCmd() *cobra.Command {
 					alert.NewLark,
 				),
 				fx.Invoke(
-					alert.CardEventCallback,
 					server.RegisterHandlers,
 					worker.Run,
 				),
@@ -95,7 +94,7 @@ func installFlags(flags *pflag.FlagSet) {
 	flags.StringSlice("alert-fields-alert-name-keys", []string{"alertname"}, "Keys to search for alert name")
 	viper.BindPFlag("alertFields.alertNameKeys", flags.Lookup("alert-fields-alert-name-keys"))
 
-	flags.StringSlice("alert-fields-project-keys", []string{"Project", "project"}, "Keys to search for project")
+	flags.StringSlice("alert-fields-project-keys", []string{"Project", "project", "component", "Component"}, "Keys to search for project")
 	viper.BindPFlag("alertFields.projectKeys", flags.Lookup("alert-fields-project-keys"))
 
 	flags.StringSlice("alert-fields-notify-emails-keys", []string{"NotifyEmails", "notify_emails"}, "Keys to search for notify emails")
